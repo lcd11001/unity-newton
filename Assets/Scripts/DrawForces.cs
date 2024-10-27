@@ -47,9 +47,24 @@ public class DrawForces : MonoBehaviour
 
         mf.mesh = CreateConeMesh(0.2f, 0.1f, 20);
 
-        var material = new Material(Shader.Find("Standard"));
+        // Create unlit material that ignores lighting 
+        var material = new Material(Shader.Find("Unlit/Color"));
         material.color = color;
+
+        // If Unlit/Color shader is not available, create an emissive material as fallback
+        if (material.shader == null)
+        {
+            material = new Material(Shader.Find("Standard"));
+            material.color = color;
+            // Make the material emissive to be visible in all lighting conditions
+            material.EnableKeyword("_EMISSION");
+            material.SetColor("_EmissionColor", color * 0.5f);
+        }
+
         mr.material = material;
+
+        // Make sure the material renders on top of other objects
+        mr.material.renderQueue = 3000; // Higher number renders later/on top
     }
 
     private void AddLineRenderer(int i)
@@ -62,13 +77,24 @@ public class DrawForces : MonoBehaviour
 
         CreateCone(lr.transform, lineColor);
 
-        lr.material = new Material(Shader.Find("Sprites/Default"));
+        Material lineMaterial = new Material(Shader.Find("Unlit/Color"));
+        lineMaterial.color = lineColor;
+        if (lineMaterial.shader == null)
+        {
+            lineMaterial = new Material(Shader.Find("Sprites/Default"));
+            lineMaterial.color = lineColor;
+        }
+
+        lr.material = lineMaterial;
         lr.startWidth = 0.1F;
         lr.endWidth = 0.1F;
         lr.useWorldSpace = false;
-        lr.startColor = lineColor;
-        lr.endColor = lineColor;
+        //lr.startColor = lineColor;
+        //lr.endColor = lineColor;
         lr.enabled = false; // Disable initially
+
+        // Make lines render on top
+        lr.material.renderQueue = 3000;
 
         lineRenderers.Add(lr);
     }
