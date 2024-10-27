@@ -36,21 +36,75 @@ public class DrawForces : MonoBehaviour
         return child;
     }
 
+    private void CreateCone(Transform parent, Color color)
+    {
+        GameObject cone = new GameObject("Cone");
+        cone.SetActive(false);
+        cone.transform.parent = parent;
+
+        MeshFilter mf = cone.AddComponent<MeshFilter>();
+        MeshRenderer mr = cone.AddComponent<MeshRenderer>();
+
+        mf.mesh = CreateConeMesh(0.2f, 0.1f, 20);
+
+        var material = new Material(Shader.Find("Standard"));
+        material.color = color;
+        mr.material = material;
+    }
+
     private void AddLineRenderer(int i)
     {
         //LineRenderer lr = gameObject.AddComponent<LineRenderer>();
         GameObject child = CreateChild(i);
         LineRenderer lr = child.AddComponent<LineRenderer>();
 
+        Color lineColor = colors[i % colors.Count];
+
+        CreateCone(lr.transform, lineColor);
+
         lr.material = new Material(Shader.Find("Sprites/Default"));
-        lr.startWidth = 0.05F;
-        lr.endWidth = 0.2F;
+        lr.startWidth = 0.1F;
+        lr.endWidth = 0.1F;
         lr.useWorldSpace = false;
-        lr.startColor = colors[i % colors.Count];
-        lr.endColor = colors[i % colors.Count];
+        lr.startColor = lineColor;
+        lr.endColor = lineColor;
         lr.enabled = false; // Disable initially
 
         lineRenderers.Add(lr);
+    }
+
+    private Mesh CreateConeMesh(float height, float radius, int segments)
+    {
+        Mesh mesh = new Mesh();
+        Vector3[] vertices = new Vector3[segments + 2];
+        int[] triangles = new int[segments * 3];
+
+        // Create cone pointing in the forward direction (Z-axis)
+        vertices[0] = new Vector3(0, 0, height); // Tip of cone at positive Z
+
+        // Base vertices
+        for (int i = 0; i < segments; i++)
+        {
+            float angle = 2 * Mathf.PI * i / segments;
+            vertices[i + 1] = new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0);
+        }
+
+        // Center of the base
+        vertices[segments + 1] = Vector3.zero;
+
+        // Triangles
+        for (int i = 0; i < segments; i++)
+        {
+            triangles[i * 3] = 0;
+            triangles[i * 3 + 1] = i + 1;
+            triangles[i * 3 + 2] = (i + 1) % segments + 1;
+        }
+
+        mesh.vertices = vertices;
+        mesh.triangles = triangles;
+        mesh.RecalculateNormals();
+
+        return mesh;
     }
 
     // Update is called once per frame
@@ -73,10 +127,8 @@ public class DrawForces : MonoBehaviour
             {
                 if (i < numberOfForces)
                 {
-                    lineRenderers[i].enabled = true;
-                    lineRenderers[i].positionCount = 2;
-                    lineRenderers[i].SetPosition(0, Vector3.zero);
-                    lineRenderers[i].SetPosition(1, -forceVectorList[i]);
+                    Vector3 force = forceVectorList[i];
+                    DrawForce(i, force);
                 }
                 else
                 {
@@ -89,6 +141,45 @@ public class DrawForces : MonoBehaviour
             foreach (var lr in lineRenderers)
             {
                 lr.enabled = false;
+            }
+        }
+    }
+
+    private void DrawForce(int i, Vector3 force)
+    {
+        LineRenderer lr = lineRenderers[i];
+        lr.enabled = true;
+
+        // Main line
+        lr.positionCount = 2;
+        lr.SetPosition(0, Vector3.zero);
+        lr.SetPosition(1, force);
+
+        // Arrowhead
+        if (lr.gameObject.transform.childCount > 0)
+        {
+            GameObject cone = lr.gameObject.transform.GetChild(0).gameObject;
+            cone.SetActive(true);
+
+            // Position the cone at the end of the line
+            cone.transform.localPosition = force;
+
+            // Calculate the rotation to align the cone with the force direction
+            if (force != Vector3.zero)
+            {
+                // Create rotation from the forward direction (Z-axis) to the force direction
+                Quaternion targetRotation = Quaternion.FromToRotation(Vector3.forward, force.normalized);
+                cone.transform.localRotation = targetRotation;
+
+                /*
+                // Scale the cone based on force magnitude
+                float scale = force.magnitude * 0.1f; // Adjust multiplier as needed
+                cone.transform.localScale = new Vector3(scale, scale, scale);
+                */
+            }
+            else
+            {
+                cone.SetActive(false);
             }
         }
     }
